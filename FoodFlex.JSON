@@ -1,0 +1,79 @@
+{
+    "type": "bubble",
+    "body": {
+      "type": "box",
+      "layout": "vertical",
+      "contents": [
+        {
+          "type": "text",
+          "text": "ไส้กรอกอีสาน",
+          "size": "20px",
+          "weight": "bold",
+          "align": "center"
+        },
+        {
+          "type": "image",
+          "url": "https://i.namu.wiki/i/I-tU2FVuexxyE6qm-xftr7_2KYUIr21P7Q11UFjBtDtcqy865f69aILqAXGP3j47MPSJV2Ne-3NczjBDARVoQQ.webp",
+          "aspectMode": "fit",
+          "size": "300px",
+          "position": "relative"
+        },
+        {
+          "type": "box",
+          "layout": "baseline",
+          "contents": [
+            {
+              "type": "text",
+              "text": "หมดอายุใน: ",
+              "margin": "0px",
+              "align": "start",
+              "weight": "bold",
+              "scaling": false,
+              "adjustMode": "shrink-to-fit"
+            },
+            {
+              "type": "text",
+              "text": "dd day",
+              "position": "relative",
+              "align": "start",
+              "color": "#fc0303",
+              "weight": "bold"
+            }
+          ],
+          "spacing": "0px",
+          "margin": "15px",
+          "position": "relative",
+          "width": "180px"
+        },
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "contents": [
+            {
+              "type": "button",
+              "action": {
+                "type": "uri",
+                "label": "บูดแล้ว",
+                "uri": "http://linecorp.com/"
+              },
+              "style": "primary",
+              "height": "sm",
+              "color": "#fc0303"
+            },
+            {
+              "type": "button",
+              "action": {
+                "type": "uri",
+                "label": "ทิ้ง",
+                "uri": "http://linecorp.com/"
+              },
+              "style": "secondary",
+              "height": "sm"
+            }
+          ],
+          "spacing": "10px",
+          "margin": "15px"
+        }
+      ]
+    }
+  }
