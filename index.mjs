@@ -1,6 +1,7 @@
 import https from 'https';
 import { createConnection } from 'mysql2/promise';
 import { createCarousel } from './Resource/foodcarousel1.mjs';
+import { createUserProfileFlex } from './Resource/profileFlex.mjs';
 const sessions = {}; 
 const flex1 = process.env.FoodFlex;
 const HOST = process.env.HOST;
@@ -50,7 +51,7 @@ export const handler = async (event) => {
                 }
             ];
             delete sessions[userId];
-        } else if (userMessage === 'ทดสอบฐานข้อมูล') {
+        } else if (userMessage === 'ล็อคอิน') {
             sessions[userId] = { flow: 'User', step: 0, data: {} };
             messages = await handleStepMessageUser(userId, userMsg);
         } else if (userMessage === 'เทสสเตป') {
@@ -199,6 +200,7 @@ async function handleStepMessageUser(userId, userMsg) {
                     password: PASSWORD,
                     database: DB
                 });
+        
                 const [results] = await connection.execute(
                     'SELECT id, phone_number, password, fname, lname, user_line, line_connected FROM MEMBERS WHERE id = ?',
                     [session.data.userid]
@@ -206,7 +208,7 @@ async function handleStepMessageUser(userId, userMsg) {
         
                 if (results.length > 0) {
                     const userData = results[0];
-                    
+        
                     if (session.data.passwordAttempt === undefined) {
                         session.data.passwordAttempt = 5;
                     }
@@ -214,14 +216,15 @@ async function handleStepMessageUser(userId, userMsg) {
                     if (passwordInput.toLowerCase() === 'exit') {
                         messages = [{ type: 'text', text: '❌ ขออภัย ลงชื่อเข้าใช้ไม่สำเร็จ' }];
                         delete sessions[userId];
+        
                     } else if (userData.password === passwordInput) {
-                        messages = [{
-                            type: 'text',
-                            text: `✅ เข้าสู่ระบบสำเร็จ!\n\nข้อมูลผู้ใช้:\n- ID: ${userData.id}\n- เบอร์โทร: ${userData.phone_number}\n- ชื่อ: ${userData.fname} ${userData.lname}\n- Line ID: ${userData.user_line || 'ไม่ได้เชื่อมต่อ'}\n- สถานะ Line: ${userData.line_connected ? 'เชื่อมต่อแล้ว' : 'ยังไม่ได้เชื่อมต่อ'}`
-                        }];
-                        delete sessions[userId];
+                        const flexMessage = createUserProfileFlex(userData);
+                        messages = [flexMessage];
+                        delete sessions[userId]; 
+        
                     } else {
                         session.data.passwordAttempt -= 1;
+        
                         if (session.data.passwordAttempt <= 0) {
                             messages = [{ type: 'text', text: '❌ ขออภัย ลงชื่อเข้าใช้ไม่สำเร็จ (พยายามเกินจำนวนครั้งที่กำหนด)' }];
                             delete sessions[userId];
@@ -246,9 +249,9 @@ async function handleStepMessageUser(userId, userMsg) {
             }
             break;
         }
-
+        
         default:
-            messages = [{ type: 'text', text: `เข้าสู่ระบบ? ระบุชื่อผู้ใช้ของคุณ!` }];
+            messages = [{ type: 'text', text: `เข้าสู่ระบบ? กรอกไอดีผู้ใช้ของคุณ!` }];
             sessions[userId] = { flow: 'User', step: 1, data: {} };
             break;
     }
