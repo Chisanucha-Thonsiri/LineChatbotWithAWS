@@ -52,7 +52,7 @@ export const handler = async (event) => {
             delete sessions[userId];
         } else if (userMessage === 'ทดสอบฐานข้อมูล') {
             sessions[userId] = { flow: 'User', step: 0, data: {} };
-            messages = handleStepMessageUser(userId, userMsg);
+            messages = await handleStepMessageUser(userId, userMsg);
         } else if (userMessage === 'เทสสเตป') {
             sessions[userId] = { flow: 'stepMessage', step: 0, data: {} };
             messages = handleStepMessage(userId, userMsg);
@@ -188,7 +188,7 @@ async function handleStepMessageUser(userId, userMsg) {
             delete sessions[userId];
             break;
         default:
-            messages = [{ type: 'text', text: "เข้าสู่ระบบ? ระบุชื่อผู้ใช้ของคุณ!" }];
+            messages = [{ type: 'text', text: `เข้าสู่ระบบ? ระบุชื่อผู้ใช้ของคุณ!` }];
             sessions[userId] = { flow: 'User', step: 1, data: {} };
             break;
     }
