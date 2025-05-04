@@ -159,7 +159,7 @@ async function handleStepMessageUser(userId, userMsg) {
     let messages = [];
 
     switch (session.step) {
-        case 1:
+        case 1: {
             session.data.userid = userMsg;
             session.step = 2;
             try {
@@ -170,32 +170,83 @@ async function handleStepMessageUser(userId, userMsg) {
                     database: DB
                 });
                 const [results] = await connection.execute(
-                    'SELECT id, phone_number, fname, lname, user_line, line_connected FROM MEMBERS WHERE id = ?', 
-                    [`${session.data.userid}`]
+                    'SELECT fname, lname FROM MEMBERS WHERE id = ?',
+                    [session.data.userid]
                 );
-            
+
                 if (results.length > 0) {
                     const userData = results[0];
-                    messages = [{ 
-                        type: 'text', 
-                        text: `ข้อมูลผู้ใช้:
-            ID: ${userData.id}
-            เบอร์โทร: ${userData.phone_number}
-            ชื่อ: ${userData.fname}
-            นามสกุล: ${userData.lname}
-            Line ID: ${userData.user_line || 'ไม่ได้เชื่อมต่อ'}
-            สถานะ Line: ${userData.line_connected ? 'เชื่อมต่อแล้ว' : 'ยังไม่ได้เชื่อมต่อ'}`
-                    }];
+                    messages = [{ type: 'text', text: `สวัสดีคุณ ${userData.fname} ${userData.lname} กรุณากรอกรหัสผ่าน:` }];
                 } else {
-                    messages = [{ type: 'text', text: 'ไม่พบผู้ใช้ที่มีรหัสนี้ในระบบ' }];
+                    messages = [{ type: 'text', text: 'ไม่พบผู้ใช้ที่มีรหัสนี้ในระบบ กรุณาลองใหม่อีกครั้ง' }];
+                    delete sessions[userId];
                 }
                 await connection.end();
             } catch (error) {
                 console.error('Database error:', error);
                 messages = [{ type: 'text', text: 'เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล' }];
+                delete sessions[userId];
             }
-            delete sessions[userId];
             break;
+        }
+
+        case 2: {
+            const passwordInput = userMsg;
+            try {
+                const connection = await createConnection({
+                    host: HOST,
+                    user: USER,
+                    password: PASSWORD,
+                    database: DB
+                });
+                const [results] = await connection.execute(
+                    'SELECT id, phone_number, password, fname, lname, user_line, line_connected FROM MEMBERS WHERE id = ?',
+                    [session.data.userid]
+                );
+        
+                if (results.length > 0) {
+                    const userData = results[0];
+                    
+                    if (session.data.passwordAttempt === undefined) {
+                        session.data.passwordAttempt = 5;
+                    }
+        
+                    if (passwordInput.toLowerCase() === 'exit') {
+                        messages = [{ type: 'text', text: '❌ ขออภัย ลงชื่อเข้าใช้ไม่สำเร็จ' }];
+                        delete sessions[userId];
+                    } else if (userData.password === passwordInput) {
+                        messages = [{
+                            type: 'text',
+                            text: `✅ เข้าสู่ระบบสำเร็จ!\n\nข้อมูลผู้ใช้:\n- ID: ${userData.id}\n- เบอร์โทร: ${userData.phone_number}\n- ชื่อ: ${userData.fname} ${userData.lname}\n- Line ID: ${userData.user_line || 'ไม่ได้เชื่อมต่อ'}\n- สถานะ Line: ${userData.line_connected ? 'เชื่อมต่อแล้ว' : 'ยังไม่ได้เชื่อมต่อ'}`
+                        }];
+                        delete sessions[userId];
+                    } else {
+                        session.data.passwordAttempt -= 1;
+                        if (session.data.passwordAttempt <= 0) {
+                            messages = [{ type: 'text', text: '❌ ขออภัย ลงชื่อเข้าใช้ไม่สำเร็จ (พยายามเกินจำนวนครั้งที่กำหนด)' }];
+                            delete sessions[userId];
+                        } else {
+                            messages = [{
+                                type: 'text',
+                                text: `❌ รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง\n(พิมพ์ Exit เพื่อออก เหลือโอกาสกรอกอีก ${session.data.passwordAttempt} ครั้ง)`
+                            }];
+                        }
+                    }
+        
+                } else {
+                    messages = [{ type: 'text', text: 'ไม่พบผู้ใช้ที่มีรหัสนี้ในระบบ' }];
+                    delete sessions[userId];
+                }
+        
+                await connection.end();
+            } catch (error) {
+                console.error('Database error:', error);
+                messages = [{ type: 'text', text: 'เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล' }];
+                delete sessions[userId];
+            }
+            break;
+        }
+
         default:
             messages = [{ type: 'text', text: `เข้าสู่ระบบ? ระบุชื่อผู้ใช้ของคุณ!` }];
             sessions[userId] = { flow: 'User', step: 1, data: {} };
