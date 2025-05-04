@@ -169,14 +169,23 @@ async function handleStepMessageUser(userId, userMsg) {
                     password: PASSWORD,
                     database: DB
                 });
-        
                 const [results] = await connection.execute(
-                    'SELECT username FROM user_data WHERE user_id = ?', 
+                    'SELECT id, phone_number, fname, lname, user_line, line_connected FROM MEMBERS WHERE id = ?', 
                     [`${session.data.userid}`]
                 );
-        
+            
                 if (results.length > 0) {
-                    messages = [{ type: 'text', text: `ชื่อผู้ใช้ที่พบ: ${results[0].username}` }];
+                    const userData = results[0];
+                    messages = [{ 
+                        type: 'text', 
+                        text: `ข้อมูลผู้ใช้:
+            ID: ${userData.id}
+            เบอร์โทร: ${userData.phone_number}
+            ชื่อ: ${userData.fname}
+            นามสกุล: ${userData.lname}
+            Line ID: ${userData.user_line || 'ไม่ได้เชื่อมต่อ'}
+            สถานะ Line: ${userData.line_connected ? 'เชื่อมต่อแล้ว' : 'ยังไม่ได้เชื่อมต่อ'}`
+                    }];
                 } else {
                     messages = [{ type: 'text', text: 'ไม่พบผู้ใช้ที่มีรหัสนี้ในระบบ' }];
                 }
