@@ -1,0 +1,1 @@
+SELECT id, material, exp, image, price, type FROM fridge WHERE owner = id; 
