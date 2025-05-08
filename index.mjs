@@ -39,18 +39,8 @@ export const handler = async (event) => {
             ];
             delete sessions[userId];
         } else if (userMessage === 'เช็คตู้เย็น') {
-            messages = [
-                {
-                    type: "flex",
-                    altText: "ตู้เย็นของฉัน",
-                    contents: JSON.parse(flex1)
-                },
-                {
-                    type: "text",
-                    text: "ใครเค้าใส่ไว้ในตู้เย็นกันพี่ชาย... 🙏"
-                }
-            ];
-            delete sessions[userId];
+            sessions[userId] = { flow: 'Fridge', step: 0, data: {} };
+            messages = await handleStepMessageFridge(userId, userMsg);
         } else if (userMessage === 'ล็อคอิน') {
             sessions[userId] = { flow: 'User', step: 0, data: {} };
             messages = await handleStepMessageUser(userId, userMsg);
@@ -73,6 +63,8 @@ export const handler = async (event) => {
                 messages = await handleStepMessageRecipt(userId, userMsg);
             } else if (flow === 'User') {
                 messages = await handleStepMessageUser(userId, userMsg);
+            } else if (flow === 'Fridge') {
+                messages = await handleStepMessageFridge(userId, userMsg);
             } 
             else {
                 messages = [{ type: 'text', text: `I don't know how to handle that flow.` }];
@@ -256,6 +248,119 @@ async function handleStepMessageUser(userId, userMsg) {
             break;
     }
 
+    return messages;
+}
+async function handleStepMessageFridge(userId, userMsg) {
+    const session = sessions[userId];
+    let messages = [];
+
+    switch (session.step) {
+        case 1: {
+            session.data.userid = userMsg;
+            session.step = 2;
+            try {
+                const connection = await createConnection({
+                    host: HOST,
+                    user: USER,
+                    password: PASSWORD,
+                    database: DB
+                });
+                const [results] = await connection.execute(
+                    'SELECT fname, lname FROM MEMBERS WHERE id = ?',
+                    [session.data.userid]
+                );
+
+                if (results.length > 0) {
+                    const userData = results[0];
+                    messages = [{ type: 'text', text: `สวัสดีคุณ ${userData.fname} ${userData.lname} เพื่อดูตู้เย็นของคุณ กรุณากรอกรหัสผ่าน:` }];
+                } else {
+                    messages = [{ type: 'text', text: 'ไม่พบผู้ใช้ที่มีรหัสนี้ในระบบ กรุณาลองใหม่อีกครั้ง' }];
+                    delete sessions[userId];
+                }
+                await connection.end();
+            } catch (error) {
+                console.error('Database error:', error);
+                messages = [{ type: 'text', text: 'เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล' }];
+                delete sessions[userId];
+            }
+            break;
+        }
+
+        case 2: {
+            const passwordInput = userMsg;
+            try {
+                const connection = await createConnection({
+                    host: HOST,
+                    user: USER,
+                    password: PASSWORD,
+                    database: DB
+                });
+        
+                const [results] = await connection.execute(
+                    'SELECT id, phone_number, password, fname, lname, user_line, line_connected FROM MEMBERS WHERE id = ?',
+                    [session.data.userid]
+                );
+
+                const [food] = await connection.execute(
+                    'SELECT id, material, exp, image, price, type FROM fridge WHERE owner = ?',
+                    [session.data.userid]
+                );
+
+                const foodCount = await connection.execute(
+                    'SELECT count(*) FROM fridge WHERE owner = ?',
+                    [session.data.userid]
+                );
+        
+                if (results.length > 0) {
+                    const userData = results[0];
+                    const foodFridge = food[0];
+        
+                    if (session.data.passwordAttempt === undefined) {
+                        session.data.passwordAttempt = 5;
+                    }
+        
+                    if (passwordInput.toLowerCase() === 'exit') {
+                        messages = [{ type: 'text', text: '❌ ขออภัย ลงชื่อเข้าใช้ไม่สำเร็จ' }];
+                        delete sessions[userId];
+        
+                    } else if (userData.password === passwordInput) {
+                        //const flexMessage = createUserProfileFlex(userData);
+                        messages = [{ type: 'text', text: `วัตถุดิบ ${foodFridge.material} วันหมดอายุ: ${foodFridge.exp} ภาพ: ${foodFridge.image} ประเภท: ${foodFridge.type} ` }];
+                        delete sessions[userId]; 
+        
+                    } else {
+                        session.data.passwordAttempt -= 1;
+        
+                        if (session.data.passwordAttempt <= 0) {
+                            messages = [{ type: 'text', text: '❌ ขออภัย ลงชื่อเข้าใช้ไม่สำเร็จ (พยายามเกินจำนวนครั้งที่กำหนด)' }];
+                            delete sessions[userId];
+                        } else {
+                            messages = [{
+                                type: 'text',
+                                text: `❌ รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง\n(พิมพ์ Exit เพื่อออก เหลือโอกาสกรอกอีก ${session.data.passwordAttempt} ครั้ง)`
+                            }];
+                        }
+                    }
+        
+                } else {
+                    messages = [{ type: 'text', text: 'ไม่พบผู้ใช้ที่มีรหัสนี้ในระบบ' }];
+                    delete sessions[userId];
+                }
+        
+                await connection.end();
+            } catch (error) {
+                console.error('Database error:', error);
+                messages = [{ type: 'text', text: 'เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล' }];
+                delete sessions[userId];
+            }
+            break;
+        }
+        
+        default:
+            messages = [{ type: 'text', text: `ดูอาหารในตู้เย็น? กรอกไอดีผู้ใช้ของคุณ!` }];
+            sessions[userId] = { flow: 'Fridge', step: 1, data: {} };
+            break;
+    }
     return messages;
 }
 async function handleStepMessageRecipt(userId, userMsg) {
