@@ -306,10 +306,12 @@ async function handleStepMessageFridge(userId, userMsg) {
                     [session.data.userid]
                 );
 
-                const foodCount = await connection.execute(
-                    'SELECT count(*) FROM fridge WHERE owner = ?',
+                const [foodCountResult] = await connection.execute(
+                    'SELECT COUNT(*) AS count FROM fridge WHERE owner = ?',
                     [session.data.userid]
                 );
+
+                const foodCount = foodCountResult[0]?.count || 0;
         
                 if (results.length > 0) {
                     const userData = results[0];
@@ -324,8 +326,35 @@ async function handleStepMessageFridge(userId, userMsg) {
                         delete sessions[userId];
         
                     } else if (userData.password === passwordInput) {
-                        //const flexMessage = createUserProfileFlex(userData);
-                        messages = [{ type: 'text', text: `วัตถุดิบ ${foodFridge.material} วันหมดอายุ: ${foodFridge.exp} ภาพ: ${foodFridge.image} ประเภท: ${foodFridge.type} ` }];
+                        if (foodCount == 1){
+                            messages = [
+                                {type: 'text', text: `คุณมีอาหาร ${foodCount} อย่างเก็บไว้บนตู้เย็น` },
+                                { type: 'text', text: `ชื่อวัตถุดิบ: ${food[0].material} \nวันหมดอายุ: ${food[0].exp} \nภาพ: ${food[0].image} \nประเภท: ${food[0].type} ` },
+                                {
+                                    type: 'image',
+                                    originalContentUrl: food[0].image, 
+                                    previewImageUrl: food[0].image  
+                                }
+                            ];
+                        }else if(foodCount == 2){
+                            messages = [
+                                {type: 'text', text: `คุณมีอาหาร ${foodCount} อย่างเก็บไว้บนตู้เย็น` },
+                                { type: 'text', text: `ชื่อวัตถุดิบ: ${food[0].material} \nวันหมดอายุ: ${food[0].exp} \nภาพ: ${food[0].image} \nประเภท: ${food[0].type} ` },
+                                {
+                                    type: 'image',
+                                    originalContentUrl: food[0].image, 
+                                    previewImageUrl: food[0].image  
+                                },
+                                { type: 'text', text: `ชื่อวัตถุดิบ: ${food[1].material} \nวันหมดอายุ: ${food[1].exp} \nภาพ: ${food[1].image} \nประเภท: ${food[1].type} ` },
+                                {
+                                    type: 'image',
+                                    originalContentUrl: food[1].image, 
+                                    previewImageUrl: food[1].image  
+                                }
+                            ];
+                        }
+                        
+                        
                         delete sessions[userId]; 
         
                     } else {
