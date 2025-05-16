@@ -21,15 +21,21 @@ export const handler = async (event) => {
         const userMessage = userMsg.toLowerCase();
 
         let messages = [];
-
+        
         if (userMessage === 'สวัสดี') {
-            messages = [{ type: 'text', text: 'สวัสดีค้าบบบบบ' }];
+            messages = [{ type: 'text', text: `สวัสดีค้าบบบบบ ${userId}` }];
             delete sessions[userId];
-        } else if (userMessage === 'ขอไอดีตัวเอง') {
+        } else if (userMessage === 'foodwaste กับ foodloss ต่างกันอย่างไร') {              
             messages = [
-                { type: 'text', text: `นี่คือไอดีผู้ใช้ของคุณ: ${userId}` },
-                { type: 'text', text: `ตอนนี้คุณสามารถใช้ระบบต่าง ๆ ของเราได้แล้วแหละ` }
-            ];
+                { 
+                    type: 'text', 
+                    text: `Foodwaste และ Foodloss แตกต่างกันในแง่ของต้นเหตุและสถานที่เกิดขึ้น:
+        
+        1. Foodloss: เกิดขึ้นในระหว่างกระบวนการผลิต การเก็บเกี่ยว การแปรรูป หรือการขนส่งอาหาร โดยทั่วไปมักเกิดก่อนที่อาหารจะไปถึงผู้บริโภค เช่น ผลผลิตเสียหายในฟาร์ม การเก็บเกี่ยวไม่ทันเวลา หรือการจัดการโลจิสติกส์ที่ไม่ดี
+        2. Foodwaste: เกิดขึ้นในระดับผู้บริโภคหรือปลายทาง เช่น การทิ้งอาหารที่ยังบริโภคได้เพราะหมดอายุ (ตามฉลาก) หรือการเตรียมอาหารในปริมาณมากเกินไปจนเหลือทิ้ง
+        `
+                }
+            ];           
             delete sessions[userId];
         }else if (userMessage === 'เทสอาหาร') {
             const res = await fetch(foodapi);
