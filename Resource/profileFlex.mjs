@@ -220,22 +220,7 @@ export function createUserProfileFlex(userData) {
   "color": isConnected ? "#ab0000" : "#1DB446",
   "gravity": "center",
   "style": "primary"
-},
-                {
-                  type: "separator",
-                  margin: "10px"
-                },
-                {
-                  type: "button",
-                  action: {
-                    type: "uri",
-                    label: "แก้ไขโปรไฟล์",
-                    uri: "http://linecorp.com/"
-                  },
-                  height: "sm",
-                  gravity: "center",
-                  style: "secondary"
-                }
+}
               ],
               margin: "10px"
             }
