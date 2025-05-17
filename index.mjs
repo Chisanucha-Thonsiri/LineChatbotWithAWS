@@ -21,7 +21,7 @@ export const handler = async (event) => {
         const userMessage = userMsg.toLowerCase();
 
         let messages = [];
-        
+
         if (userMessage === 'สวัสดี') {
             messages = [{ type: 'text', text: `สวัสดีค้าบบบบบ ${userId}` }];
             delete sessions[userId];
@@ -37,7 +37,35 @@ export const handler = async (event) => {
                 }
             ];           
             delete sessions[userId];
-        }else if (userMessage === 'เทสอาหาร') {
+        }else if (userMessage === 'ยกเลิกเชื่อมต่อบัญชี') {
+    let connection;
+    try {
+        connection = await createConnection({
+            host: HOST,
+            user: USER,
+            password: PASSWORD,
+            database: DB
+        });
+
+        const connected = 0;
+        const user_lineID = null;
+
+        await connection.execute(
+            'UPDATE MEMBERS SET user_line = ?, line_connected = ? WHERE user_line = ?;',
+            [user_lineID, connected, userId]
+        );
+
+        messages = [{ type: 'text', text: 'ยกเลิกเชื่อมต่อบัญชีแล้ว' }];
+    } catch (error) {
+        console.error('Database error:', error.message, error.stack);
+        messages = [{ type: 'text', text: 'เกิดข้อผิดพลาดในการยกเลิกเชื่อมต่อบัญชี' }];
+    } finally {
+        if (connection) {
+            await connection.end();
+        }
+    }
+}
+        else if (userMessage === 'เทสอาหาร') {
             const res = await fetch(foodapi);
             const recipe = await res.json();
             messages = [
@@ -191,6 +219,7 @@ async function handleStepMessageUser(userId, userMsg) {
 
         case 2: {
             const passwordInput = userMsg;
+           // session.step = 3;
             try {
                 const connection = await createConnection({
                     host: HOST,
@@ -216,9 +245,10 @@ async function handleStepMessageUser(userId, userMsg) {
                         delete sessions[userId];
         
                     } else if (userData.password === passwordInput) {
+                        session.step = 3;
                         const flexMessage = createUserProfileFlex(userData);
                         messages = [flexMessage];
-                        delete sessions[userId]; 
+                        //delete sessions[userId]; 
         
                     } else {
                         session.data.passwordAttempt -= 1;
@@ -247,7 +277,43 @@ async function handleStepMessageUser(userId, userMsg) {
             }
             break;
         }
-        
+        case 3: {
+            //session.data.userid = userMsg;
+            //session.step = 2;
+            try {
+                const connection = await createConnection({
+                    host: HOST,
+                    user: USER,
+                    password: PASSWORD,
+                    database: DB
+                });
+                
+                if (userMsg === "เชื่อมบัญชี") {
+                    const connected = 1;
+                    await connection.execute(
+                    'UPDATE MEMBERS SET user_line = ?, line_connected = ? WHERE id = ?;',
+                    [userId,connected,session.data.userid]
+                );
+                const [updatedResults] = await connection.execute(
+                    'SELECT id, phone_number, password, fname, lname, user_line, line_connected FROM MEMBERS WHERE id = ?',
+                    [session.data.userid]
+                );
+                    const userData = updatedResults[0];
+                    const flexMessage = createUserProfileFlex(userData);
+                    messages = [flexMessage];
+                } else {
+                    messages = [{ type: 'text', text: 'ไม่ได้เชื่อมบัญชี/อัพเดตข้อมูลใดๆ' }];
+                    delete sessions[userId];
+                }
+                await connection.end();
+            } catch (error) {
+                console.error('Database error:', error);
+                messages = [{ type: 'text', text: 'เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล' }];
+                delete sessions[userId];
+            }
+            break;
+        }
+
         default:
             messages = [{ type: 'text', text: `เข้าสู่ระบบ? กรอกไอดีผู้ใช้ของคุณ!` }];
             sessions[userId] = { flow: 'User', step: 1, data: {} };

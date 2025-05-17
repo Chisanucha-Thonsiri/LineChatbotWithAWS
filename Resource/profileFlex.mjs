@@ -210,16 +210,17 @@ export function createUserProfileFlex(userData) {
               layout: "horizontal",
               contents: [
                 {
-                  type: "button",
-                  action: {
-                    type: "uri",
-                    label: "เชื่อมต่อบัญชี",
-                    uri: "http://linecorp.com/"
-                  },
-                  height: "sm",
-                  gravity: "center",
-                  style: "primary"
-                },
+  "type": "button",
+  "action": {
+    "type": "message",
+    "label": isConnected ? "ยกเลิกเชื่อม" : "เชื่อมต่อบัญชี",
+    "text": isConnected ? "ยกเลิกเชื่อมต่อบัญชี" : "เชื่อมบัญชี"
+  },
+  "height": "sm",
+  "color": isConnected ? "#ab0000" : "#1DB446",
+  "gravity": "center",
+  "style": "primary"
+},
                 {
                   type: "separator",
                   margin: "10px"
