@@ -23,15 +23,49 @@ export const handler = async (event) => {
         let messages = [];
 
         if (userMessage === 'สวัสดี') {
-            messages = [{ type: 'text', text: 'สวัสดีค้าบบบบบ' }];
+            messages = [{ type: 'text', text: `สวัสดีค้าบบบบบ ${userId}` }];
             delete sessions[userId];
-        } else if (userMessage === 'ขอไอดีตัวเอง') {
+        } else if (userMessage === 'foodwaste กับ foodloss ต่างกันอย่างไร') {              
             messages = [
-                { type: 'text', text: `นี่คือไอดีผู้ใช้ของคุณ: ${userId}` },
-                { type: 'text', text: `ตอนนี้คุณสามารถใช้ระบบต่าง ๆ ของเราได้แล้วแหละ` }
-            ];
+                { 
+                    type: 'text', 
+                    text: `Foodwaste และ Foodloss แตกต่างกันในแง่ของต้นเหตุและสถานที่เกิดขึ้น:
+        
+        1. Foodloss: เกิดขึ้นในระหว่างกระบวนการผลิต การเก็บเกี่ยว การแปรรูป หรือการขนส่งอาหาร โดยทั่วไปมักเกิดก่อนที่อาหารจะไปถึงผู้บริโภค เช่น ผลผลิตเสียหายในฟาร์ม การเก็บเกี่ยวไม่ทันเวลา หรือการจัดการโลจิสติกส์ที่ไม่ดี
+        2. Foodwaste: เกิดขึ้นในระดับผู้บริโภคหรือปลายทาง เช่น การทิ้งอาหารที่ยังบริโภคได้เพราะหมดอายุ (ตามฉลาก) หรือการเตรียมอาหารในปริมาณมากเกินไปจนเหลือทิ้ง
+        `
+                }
+            ];           
             delete sessions[userId];
-        }else if (userMessage === 'เทสอาหาร') {
+        }else if (userMessage === 'ยกเลิกเชื่อมต่อบัญชี') {
+    let connection;
+    try {
+        connection = await createConnection({
+            host: HOST,
+            user: USER,
+            password: PASSWORD,
+            database: DB
+        });
+
+        const connected = 0;
+        const user_lineID = null;
+
+        await connection.execute(
+            'UPDATE MEMBERS SET user_line = ?, line_connected = ? WHERE user_line = ?;',
+            [user_lineID, connected, userId]
+        );
+
+        messages = [{ type: 'text', text: 'ยกเลิกเชื่อมต่อบัญชีแล้ว' }];
+    } catch (error) {
+        console.error('Database error:', error.message, error.stack);
+        messages = [{ type: 'text', text: 'เกิดข้อผิดพลาดในการยกเลิกเชื่อมต่อบัญชี' }];
+    } finally {
+        if (connection) {
+            await connection.end();
+        }
+    }
+}
+        else if (userMessage === 'เทสอาหาร') {
             const res = await fetch(foodapi);
             const recipe = await res.json();
             messages = [
@@ -169,7 +203,7 @@ async function handleStepMessageUser(userId, userMsg) {
 
                 if (results.length > 0) {
                     const userData = results[0];
-                    messages = [{ type: 'text', text: `สวัสดีคุณ ${userData.fname} ${userData.lname} กรุณากรอกรหัสผ่าน:` }];
+                    messages = [{ type: 'text', text: `สวัสดีคุณ ${userData.fname} ${userData.lname} \nกรุณากรอกรหัสผ่าน:` }];
                 } else {
                     messages = [{ type: 'text', text: 'ไม่พบผู้ใช้ที่มีรหัสนี้ในระบบ กรุณาลองใหม่อีกครั้ง' }];
                     delete sessions[userId];
@@ -185,6 +219,7 @@ async function handleStepMessageUser(userId, userMsg) {
 
         case 2: {
             const passwordInput = userMsg;
+           // session.step = 3;
             try {
                 const connection = await createConnection({
                     host: HOST,
@@ -210,9 +245,10 @@ async function handleStepMessageUser(userId, userMsg) {
                         delete sessions[userId];
         
                     } else if (userData.password === passwordInput) {
+                        session.step = 3;
                         const flexMessage = createUserProfileFlex(userData);
                         messages = [flexMessage];
-                        delete sessions[userId]; 
+                        //delete sessions[userId]; 
         
                     } else {
                         session.data.passwordAttempt -= 1;
@@ -241,10 +277,65 @@ async function handleStepMessageUser(userId, userMsg) {
             }
             break;
         }
-        
+        case 3: {
+            //session.data.userid = userMsg;
+            //session.step = 2;
+            try {
+                const connection = await createConnection({
+                    host: HOST,
+                    user: USER,
+                    password: PASSWORD,
+                    database: DB
+                });
+                
+                if (userMsg === "เชื่อมบัญชี") {
+                    const connected = 1;
+                    await connection.execute(
+                    'UPDATE MEMBERS SET user_line = ?, line_connected = ? WHERE id = ?;',
+                    [userId,connected,session.data.userid]
+                );
+                const [updatedResults] = await connection.execute(
+                    'SELECT id, phone_number, password, fname, lname, user_line, line_connected FROM MEMBERS WHERE id = ?',
+                    [session.data.userid]
+                );
+                    const userData = updatedResults[0];
+                    const flexMessage = createUserProfileFlex(userData);
+                    messages = [flexMessage];
+                } else {
+                    messages = [{ type: 'text', text: 'ไม่ได้เชื่อมบัญชี/อัพเดตข้อมูลใดๆ' }];
+                    delete sessions[userId];
+                }
+                await connection.end();
+            } catch (error) {
+                console.error('Database error:', error);
+                messages = [{ type: 'text', text: 'เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล' }];
+                delete sessions[userId];
+            }
+            break;
+        }
+
         default:
-            messages = [{ type: 'text', text: `เข้าสู่ระบบ? กรอกไอดีผู้ใช้ของคุณ!` }];
-            sessions[userId] = { flow: 'User', step: 1, data: {} };
+            const connection = await createConnection({
+                    host: HOST,
+                    user: USER,
+                    password: PASSWORD,
+                    database: DB
+                });
+        
+            const [results] = await connection.execute(
+                    'SELECT id, phone_number, password, fname, lname, user_line, line_connected FROM MEMBERS WHERE user_line = ?',
+                    [userId]
+                );
+            if(results.length > 0){
+                const userData = results[0];
+                const flexMessage = createUserProfileFlex(userData);
+                messages = [flexMessage];
+                sessions[userId] = { flow: 'User', step: 3, data: {} };
+            }else{
+                messages = [{ type: 'text', text: `เข้าสู่ระบบ? กรอกไอดีผู้ใช้ของคุณ!` }];
+                sessions[userId] = { flow: 'User', step: 1, data: {} };
+            }
+            
             break;
     }
 

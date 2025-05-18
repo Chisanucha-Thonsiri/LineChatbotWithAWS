@@ -1,0 +1,2 @@
+This feature needs to be deployed to a completely separate Lambda function, independent from the main Lambda function.
+Create a new directory and include "this" index.mjs file in it. Additionally, ensure all necessary packages, such as mysql, are installed.
