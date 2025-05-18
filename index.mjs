@@ -203,7 +203,7 @@ async function handleStepMessageUser(userId, userMsg) {
 
                 if (results.length > 0) {
                     const userData = results[0];
-                    messages = [{ type: 'text', text: `สวัสดีคุณ ${userData.fname} ${userData.lname} กรุณากรอกรหัสผ่าน:` }];
+                    messages = [{ type: 'text', text: `สวัสดีคุณ ${userData.fname} ${userData.lname} \nกรุณากรอกรหัสผ่าน:` }];
                 } else {
                     messages = [{ type: 'text', text: 'ไม่พบผู้ใช้ที่มีรหัสนี้ในระบบ กรุณาลองใหม่อีกครั้ง' }];
                     delete sessions[userId];
@@ -315,8 +315,27 @@ async function handleStepMessageUser(userId, userMsg) {
         }
 
         default:
-            messages = [{ type: 'text', text: `เข้าสู่ระบบ? กรอกไอดีผู้ใช้ของคุณ!` }];
-            sessions[userId] = { flow: 'User', step: 1, data: {} };
+            const connection = await createConnection({
+                    host: HOST,
+                    user: USER,
+                    password: PASSWORD,
+                    database: DB
+                });
+        
+            const [results] = await connection.execute(
+                    'SELECT id, phone_number, password, fname, lname, user_line, line_connected FROM MEMBERS WHERE user_line = ?',
+                    [userId]
+                );
+            if(results.length > 0){
+                const userData = results[0];
+                const flexMessage = createUserProfileFlex(userData);
+                messages = [flexMessage];
+                sessions[userId] = { flow: 'User', step: 3, data: {} };
+            }else{
+                messages = [{ type: 'text', text: `เข้าสู่ระบบ? กรอกไอดีผู้ใช้ของคุณ!` }];
+                sessions[userId] = { flow: 'User', step: 1, data: {} };
+            }
+            
             break;
     }
 
