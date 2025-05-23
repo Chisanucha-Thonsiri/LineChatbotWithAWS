@@ -2,6 +2,7 @@ import https from 'https';
 import { createConnection } from 'mysql2/promise';
 import { createCarousel } from './Resource/foodcarousel1.mjs';
 import { createUserProfileFlex } from './Resource/profileFlex.mjs';
+import bcrypt from 'bcrypt';
 const sessions = {}; 
 const flex1 = process.env.FoodFlex;
 const HOST = process.env.HOST;
@@ -9,7 +10,8 @@ const USER = process.env.USER;
 const PASSWORD = process.env.PASSWORD;
 const DB = process.env.DB;
 const SpoonAPIKEY= process.env.SpoonAPIKEY;
-export const handler = async (event) => {
+const AI= process.env.AI;
+export const handler = async (event) => {  
     try {
         const eventObj = event.events?.[0];
         if (!eventObj?.replyToken || !eventObj?.message?.text) {
@@ -23,7 +25,7 @@ export const handler = async (event) => {
         let messages = [];
 
         if (userMessage === 'สวัสดี') {
-            messages = [{ type: 'text', text: `สวัสดีค้าบบบบบ ${userId}` }];
+            messages = [{ type: 'text', text: `สวัสดีค้าบบบบ` }];
             delete sessions[userId];
         } else if (userMessage === 'foodwaste กับ foodloss ต่างกันอย่างไร') {              
             messages = [
@@ -51,7 +53,7 @@ export const handler = async (event) => {
         const user_lineID = null;
 
         await connection.execute(
-            'UPDATE MEMBERS SET user_line = ?, line_connected = ? WHERE user_line = ?;',
+            'UPDATE members SET user_line = ?, line_connected = ? WHERE user_line = ?;',
             [user_lineID, connected, userId]
         );
 
@@ -104,9 +106,31 @@ export const handler = async (event) => {
                 messages = [{ type: 'text', text: `I don't know how to handle that flow.` }];
             }
         } else {
-            messages = [{ type: 'text', text: `I didn't understand your message: ${userMsg}` }];
+      // เรียก Gemini API และรอผลลัพธ์
+      const geminiResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${AI}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: 'user',
+                parts: [{ text: userMessage }]
+              }
+            ]
+          })
         }
+      );
 
+      const geminiData = await geminiResponse.json();
+      const reply = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || 'ขออภัย ระบบไม่สามารถตอบได้ในขณะนี้';
+
+      messages = [{ type: 'text', text: reply }];
+      console.log(reply)
+    }
         const post_data = JSON.stringify({
             replyToken: eventObj.replyToken,
             messages
@@ -197,7 +221,7 @@ async function handleStepMessageUser(userId, userMsg) {
                     database: DB
                 });
                 const [results] = await connection.execute(
-                    'SELECT fname, lname FROM MEMBERS WHERE id = ?',
+                    'SELECT fname, lname FROM members WHERE id = ?',
                     [session.data.userid]
                 );
 
@@ -229,7 +253,7 @@ async function handleStepMessageUser(userId, userMsg) {
                 });
         
                 const [results] = await connection.execute(
-                    'SELECT id, phone_number, password, fname, lname, user_line, line_connected FROM MEMBERS WHERE id = ?',
+                    'SELECT id, phone_number, password, fname, lname, user_line, line_connected FROM members WHERE id = ?',
                     [session.data.userid]
                 );
         
@@ -244,7 +268,7 @@ async function handleStepMessageUser(userId, userMsg) {
                         messages = [{ type: 'text', text: '❌ ขออภัย ลงชื่อเข้าใช้ไม่สำเร็จ' }];
                         delete sessions[userId];
         
-                    } else if (userData.password === passwordInput) {
+                    } else if (await bcrypt.compare(passwordInput, userData.password)) { //await bcrypt.compare(passwordInput, userData.password);
                         session.step = 3;
                         const flexMessage = createUserProfileFlex(userData);
                         messages = [flexMessage];
@@ -291,11 +315,11 @@ async function handleStepMessageUser(userId, userMsg) {
                 if (userMsg === "เชื่อมบัญชี") {
                     const connected = 1;
                     await connection.execute(
-                    'UPDATE MEMBERS SET user_line = ?, line_connected = ? WHERE id = ?;',
+                    'UPDATE members SET user_line = ?, line_connected = ? WHERE id = ?;',
                     [userId,connected,session.data.userid]
                 );
                 const [updatedResults] = await connection.execute(
-                    'SELECT id, phone_number, password, fname, lname, user_line, line_connected FROM MEMBERS WHERE id = ?',
+                    'SELECT id, phone_number, password, fname, lname, user_line, line_connected FROM members WHERE id = ?',
                     [session.data.userid]
                 );
                     const userData = updatedResults[0];
@@ -323,7 +347,7 @@ async function handleStepMessageUser(userId, userMsg) {
                 });
         
             const [results] = await connection.execute(
-                    'SELECT id, phone_number, password, fname, lname, user_line, line_connected FROM MEMBERS WHERE user_line = ?',
+                    'SELECT id, phone_number, password, fname, lname, user_line, line_connected FROM members WHERE user_line = ?',
                     [userId]
                 );
             if(results.length > 0){
@@ -547,3 +571,18 @@ async function makeRequest(post_data) {
         request.end();
     });
 }
+async function chatGemini(message) {
+    const model = genAI.getGenerativeModel({ model: "models/gemini-pro" });
+  
+    const result = await model.generateContent({
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: message }]
+        }
+      ]
+    });
+  
+    return result.response.candidates[0].content.parts[0].text;
+  }
+  
