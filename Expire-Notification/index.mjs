@@ -4,13 +4,20 @@ const HOST = process.env.HOST;
 const USER = process.env.USER;
 const PASSWORD = process.env.PASSWORD;
 const DB = process.env.DB;
+const noIMG = "https://maibood.s3.us-east-1.amazonaws.com/NoImage.png";
 
 export const handler = async (event) => {
   const pushMessage = async (foodExpSoon, connection) => {
     try {
       const [rows] = await connection.execute(
-        'SELECT user_line FROM MEMBERS WHERE id = ?;', [foodExpSoon.owner]
+        'SELECT user_line FROM members WHERE id = ?;', [foodExpSoon.owner]
       );
+      const date = new Date(foodExpSoon.exp);
+      const thDate = new Intl.DateTimeFormat('th-TH', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric'
+}).format(date); 
 
       const ownerID = rows.length > 0 ? rows[0].user_line : null;
 
@@ -44,9 +51,9 @@ export const handler = async (event) => {
   },
   "hero": {
     "type": "image",
-    "url": foodExpSoon.image,
+    "url": foodExpSoon.image || noIMG,
     "size": "full",
-    "aspectMode": "cover",
+    "aspectMode": "fit",
     "aspectRatio": "320:213"
   },
   "body": {
@@ -97,7 +104,7 @@ export const handler = async (event) => {
               },
               {
                 "type": "text",
-                "text": `${foodExpSoon.exp}`,
+                "text": `${thDate}`,
                 "wrap": true,
                 "size": "xs",
                 "flex": 5,
@@ -154,8 +161,7 @@ export const handler = async (event) => {
     });
 
     const [foodExpSoonList] = await connection.execute(
-      'SELECT * FROM fridge WHERE exp BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 3 DAY);'
-    );
+      'SELECT * FROM fridge WHERE exp BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 3 DAY) AND is_store IN (0,1);')
 
     await Promise.all(foodExpSoonList.map(foodExpSoon => pushMessage(foodExpSoon, connection)));
   } catch (error) {
