@@ -78,6 +78,9 @@ export const handler = async (event) => {
         }else if (userMessage === 'ตู้เย็น'){
             messages = await getFridge(userId);
             delete sessions[userId];
+        }else if (userMessage === 'ใกล้หมดอายุ'){
+            messages = await getExpireFood(userId);
+            delete sessions[userId];
         }
          else if (userMessage === 'เช็คตู้เย็น') {
             sessions[userId] = { flow: 'Fridge', step: 0, data: {} };
@@ -330,6 +333,7 @@ async function handleStepMessageUser(userId, userMsg) {
                     const userData = updatedResults[0];
                     const flexMessage = createUserProfileFlex(userData);
                     messages = [flexMessage];
+                    delete sessions[userId];
                 } else {
                     messages = [{ type: 'text', text: 'ไม่ได้เชื่อมบัญชี/อัพเดตข้อมูลใดๆ' }];
                     delete sessions[userId];
@@ -620,6 +624,50 @@ async function getFridge(userId){
                     const foodcarousel = createCarouselFridge(food,foodCount);
                 m = [
                     { type: 'text', text: `ด้านในตู้เย็นของ ${results[0].fname} ${results[0].lname} \n มีอาหารอยู่ ${foodCount} ชิ้น!!` },
+                {
+                  type: "flex",
+                  altText: "เมนูอาหารที่แนะนำ",
+                  contents: foodcarousel
+                }
+              ];
+                }else{
+                  m = [
+                { type: 'text', text: `คุณไม่มีอาหารในตู้เย็น ไปเพิ่มอาหารที่เว็บไซต์ได้เลย` }
+              ];
+                }
+              return m;
+
+
+}
+async function getExpireFood(userId){
+    const connection = await createConnection({
+                    host: HOST,
+                    user: USER,
+                    password: PASSWORD,
+                    database: DB
+                });
+                const [results] = await connection.execute(
+                    'SELECT id,fname,lname FROM members WHERE user_line = ?',
+                    [userId]
+                );
+                if (results.length === 0) {
+    return [{ type: 'text', text: 'กรุณาเชื่อมบัญชีก่อนใช้งาน' }];
+  }
+                const [food] = await connection.execute(
+                    'SELECT id, material,is_store, exp, image, type FROM fridge WHERE owner = ? and is_store in (0,1) and exp BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 3 DAY)',
+                    [results[0].id]
+                );
+
+                const [foodCountResult] = await connection.execute(
+                    'SELECT COUNT(*) AS count FROM fridge WHERE owner = ? and is_store in (0,1) and exp BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 3 DAY)',
+                    [results[0].id]
+                );
+                const foodCount = foodCountResult[0]?.count || 0;
+                let m;
+                if(foodCount != 0){
+                    const foodcarousel = createCarouselFridge(food,foodCount);
+                m = [
+                    { type: 'text', text: `ด้านในตู้เย็นของ ${results[0].fname} ${results[0].lname} \n มีอาหารใกล้หมดอายุอยู่ ${foodCount} ชิ้น!!` },
                 {
                   type: "flex",
                   altText: "เมนูอาหารที่แนะนำ",
