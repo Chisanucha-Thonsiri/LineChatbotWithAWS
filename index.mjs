@@ -59,6 +59,7 @@ export const handler = async (event) => {
         );
 
         messages = [{ type: 'text', text: 'ยกเลิกเชื่อมต่อบัญชีแล้ว' }];
+        delete sessions[userId];
     } catch (error) {
         console.error('Database error:', error.message, error.stack);
         messages = [{ type: 'text', text: 'เกิดข้อผิดพลาดในการยกเลิกเชื่อมต่อบัญชี' }];
