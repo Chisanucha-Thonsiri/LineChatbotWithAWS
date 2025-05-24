@@ -1,6 +1,7 @@
 import https from 'https';
 import { createConnection } from 'mysql2/promise';
 import { createCarousel } from './Resource/foodcarousel1.mjs';
+import { createCarouselFridge } from './Resource/foodcarousel2.mjs';
 import { createUserProfileFlex } from './Resource/profileFlex.mjs';
 import bcrypt from 'bcrypt';
 const sessions = {}; 
@@ -74,7 +75,11 @@ export const handler = async (event) => {
                 { type: 'text', text: `${recipe[0].title}` }
             ];
             delete sessions[userId];
-        } else if (userMessage === 'เช็คตู้เย็น') {
+        }else if (userMessage === 'ตู้เย็น'){
+            messages = await getFridge(userId);
+            delete sessions[userId];
+        }
+         else if (userMessage === 'เช็คตู้เย็น') {
             sessions[userId] = { flow: 'Fridge', step: 0, data: {} };
             messages = await handleStepMessageFridge(userId, userMsg);
         } else if (userMessage === 'ล็อคอิน') {
@@ -381,7 +386,7 @@ async function handleStepMessageFridge(userId, userMsg) {
                     database: DB
                 });
                 const [results] = await connection.execute(
-                    'SELECT fname, lname FROM MEMBERS WHERE id = ?',
+                    'SELECT fname, lname FROM members WHERE id = ?',
                     [session.data.userid]
                 );
 
@@ -412,7 +417,7 @@ async function handleStepMessageFridge(userId, userMsg) {
                 });
         
                 const [results] = await connection.execute(
-                    'SELECT id, phone_number, password, fname, lname, user_line, line_connected FROM MEMBERS WHERE id = ?',
+                    'SELECT id, phone_number, password, fname, lname, user_line, line_connected FROM members WHERE id = ?',
                     [session.data.userid]
                 );
 
@@ -422,7 +427,7 @@ async function handleStepMessageFridge(userId, userMsg) {
                 );
 
                 const [foodCountResult] = await connection.execute(
-                    'SELECT COUNT(*) AS count FROM fridge WHERE owner = ?',
+                    'SELECT COUNT(*) AS count FROM fridge WHERE owner = ? and is_store in (0,1)',
                     [session.data.userid]
                 );
 
@@ -440,7 +445,7 @@ async function handleStepMessageFridge(userId, userMsg) {
                         messages = [{ type: 'text', text: '❌ ขออภัย ลงชื่อเข้าใช้ไม่สำเร็จ' }];
                         delete sessions[userId];
         
-                    } else if (userData.password === passwordInput) {
+                    } else if (await bcrypt.compare(passwordInput, userData.password)) { 
                         if (foodCount == 1){
                             messages = [
                                 {type: 'text', text: `คุณมีอาหาร ${foodCount} อย่างเก็บไว้บนตู้เย็น` },
@@ -585,4 +590,49 @@ async function chatGemini(message) {
   
     return result.response.candidates[0].content.parts[0].text;
   }
+
+async function getFridge(userId){
+    const connection = await createConnection({
+                    host: HOST,
+                    user: USER,
+                    password: PASSWORD,
+                    database: DB
+                });
+                const [results] = await connection.execute(
+                    'SELECT id,fname,lname FROM members WHERE user_line = ?',
+                    [userId]
+                );
+                if (results.length === 0) {
+    return [{ type: 'text', text: 'กรุณาเชื่อมบัญชีก่อนใช้งาน' }];
+  }
+                const [food] = await connection.execute(
+                    'SELECT id, material,is_store, exp, image, type FROM fridge WHERE owner = ? and is_store in (0,1)',
+                    [results[0].id]
+                );
+
+                const [foodCountResult] = await connection.execute(
+                    'SELECT COUNT(*) AS count FROM fridge WHERE owner = ? and is_store in (0,1)',
+                    [results[0].id]
+                );
+                const foodCount = foodCountResult[0]?.count || 0;
+                let m;
+                if(foodCount != 0){
+                    const foodcarousel = createCarouselFridge(food,foodCount);
+                m = [
+                    { type: 'text', text: `ด้านในตู้เย็นของ ${results[0].fname} ${results[0].lname} \n มีอาหารอยู่ ${foodCount} ชิ้น!!` },
+                {
+                  type: "flex",
+                  altText: "เมนูอาหารที่แนะนำ",
+                  contents: foodcarousel
+                }
+              ];
+                }else{
+                  m = [
+                { type: 'text', text: `คุณไม่มีอาหารในตู้เย็น ไปเพิ่มอาหารที่เว็บไซต์ได้เลย` }
+              ];
+                }
+              return m;
+
+
+}
   
